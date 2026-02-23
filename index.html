@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Jogo de Corrida 2D</title>
+    <title>Jogo de Corrida 2D com Tiro</title>
     <style>
         body {
             margin: 0;
@@ -37,6 +37,7 @@
 <div class="controls">
     <button id="leftBtn">⬅️ Esquerda</button>
     <button id="rightBtn">Direita ➡️</button>
+    <button id="shootBtn">💥 Atirar</button>
 </div>
 
 <script>
@@ -60,6 +61,12 @@ let obstacles = [];
 const obstacleSpeed = 4;
 let spawnTimer = 0;
 
+// Tiros
+const bullets = [];
+const bulletWidth = 10;
+const bulletHeight = 20;
+const bulletSpeed = 7;
+
 // Pontuação
 let score = 0;
 
@@ -67,6 +74,7 @@ let score = 0;
 let leftPressed = false;
 let rightPressed = false;
 
+// Eventos teclado
 document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft') leftPressed = true;
     if (e.key === 'ArrowRight') rightPressed = true;
@@ -83,26 +91,35 @@ document.getElementById('leftBtn').addEventListener('mouseup', () => leftPressed
 document.getElementById('rightBtn').addEventListener('mousedown', () => rightPressed = true);
 document.getElementById('rightBtn').addEventListener('mouseup', () => rightPressed = false);
 
-// Para toque em celular
 document.getElementById('leftBtn').addEventListener('touchstart', (e) => { leftPressed = true; e.preventDefault(); });
 document.getElementById('leftBtn').addEventListener('touchend', (e) => { leftPressed = false; e.preventDefault(); });
 document.getElementById('rightBtn').addEventListener('touchstart', (e) => { rightPressed = true; e.preventDefault(); });
 document.getElementById('rightBtn').addEventListener('touchend', (e) => { rightPressed = false; e.preventDefault(); });
 
-// Função para gerar obstáculos
+// Botão de atirar
+document.getElementById('shootBtn').addEventListener('click', shoot);
+document.getElementById('shootBtn').addEventListener('touchstart', (e) => { shoot(); e.preventDefault(); });
+
+function shoot() {
+    bullets.push({ x: carX + carWidth / 2 - bulletWidth / 2, y: carY - bulletHeight });
+}
+
+// Gerar obstáculos
 function spawnObstacle() {
     const x = Math.random() * (canvasWidth - obstacleWidth);
     obstacles.push({ x: x, y: -obstacleHeight });
 }
 
-// Função para atualizar o jogo
+// Atualizar jogo
 function update() {
     if (leftPressed && carX > 0) carX -= carSpeed;
     if (rightPressed && carX < canvasWidth - carWidth) carX += carSpeed;
 
-    obstacles.forEach((obs, index) => {
+    // Atualizar obstáculos
+    obstacles.forEach((obs, oIndex) => {
         obs.y += obstacleSpeed;
 
+        // Colisão com carro
         if (carX < obs.x + obstacleWidth &&
             carX + carWidth > obs.x &&
             carY < obs.y + obstacleHeight &&
@@ -111,12 +128,31 @@ function update() {
             document.location.reload();
         }
 
+        // Colisão com tiros
+        bullets.forEach((b, bIndex) => {
+            if (b.x < obs.x + obstacleWidth &&
+                b.x + bulletWidth > obs.x &&
+                b.y < obs.y + obstacleHeight &&
+                b.y + bulletHeight > obs.y) {
+                obstacles.splice(oIndex, 1);
+                bullets.splice(bIndex, 1);
+                score += 2; // Pontuação extra por destruir
+            }
+        });
+
         if (obs.y > canvasHeight) {
-            obstacles.splice(index, 1);
+            obstacles.splice(oIndex, 1);
             score++;
         }
     });
 
+    // Atualizar tiros
+    bullets.forEach((b, index) => {
+        b.y -= bulletSpeed;
+        if (b.y + bulletHeight < 0) bullets.splice(index, 1);
+    });
+
+    // Spawn obstáculos
     spawnTimer++;
     if (spawnTimer > 60) {
         spawnObstacle();
@@ -124,16 +160,23 @@ function update() {
     }
 }
 
-// Função para desenhar o jogo
+// Desenhar jogo
 function draw() {
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
+    // Carro
     ctx.fillStyle = 'orange';
     ctx.fillRect(carX, carY, carWidth, carHeight);
 
+    // Obstáculos
     ctx.fillStyle = 'red';
     obstacles.forEach(obs => ctx.fillRect(obs.x, obs.y, obstacleWidth, obstacleHeight));
 
+    // Tiros
+    ctx.fillStyle = 'yellow';
+    bullets.forEach(b => ctx.fillRect(b.x, b.y, bulletWidth, bulletHeight));
+
+    // Pontuação
     ctx.fillStyle = 'white';
     ctx.font = '20px Arial';
     ctx.fillText('Pontuação: ' + score, 10, 30);
