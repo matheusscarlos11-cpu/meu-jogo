@@ -1,158 +1,129 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Jogo do Dinossauro</title>
-<style>
-  body { margin: 0; background: #fff; overflow: hidden; }
-  canvas { display: block; margin: auto; background: #fff; }
-</style>
+    <meta charset="UTF-8">
+    <title>Jogo de Corrida 2D</title>
+    <style>
+        body {
+            margin: 0;
+            background: #333;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: #555;
+            border: 2px solid #000;
+        }
+    </style>
 </head>
 <body>
-<canvas id="gameCanvas" width="800" height="400"></canvas>
+<canvas id="gameCanvas" width="400" height="600"></canvas>
+
 <script>
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
 
-const WIDTH = canvas.width;
-const HEIGHT = canvas.height;
+const canvasWidth = canvas.width;
+const canvasHeight = canvas.height;
 
-// Dinossauro
-let dino = {
-    x: 100,
-    y: HEIGHT - 90,
-    width: 50,
-    height: 50,
-    velY: 0,
-    gravity: 0.8,
-    isJumping: false
-};
+// Carro
+const carWidth = 50;
+const carHeight = 100;
+let carX = canvasWidth / 2 - carWidth / 2;
+let carY = canvasHeight - carHeight - 10;
+const carSpeed = 5;
 
 // Obstáculos
+const obstacleWidth = 50;
+const obstacleHeight = 50;
 let obstacles = [];
-let obstacleSpeed = 6;
+const obstacleSpeed = 4;
 let spawnTimer = 0;
 
 // Pontuação
 let score = 0;
 
-// Função para criar obstáculos
-function createObstacle() {
-    let x = WIDTH + Math.random() * 300;
-    let y = HEIGHT - 70;
-    obstacles.push({x: x, y: y, radius: 20});
+// Controles
+let leftPressed = false;
+let rightPressed = false;
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') leftPressed = true;
+    if (e.key === 'ArrowRight') rightPressed = true;
+});
+
+document.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft') leftPressed = false;
+    if (e.key === 'ArrowRight') rightPressed = false;
+});
+
+// Função para gerar obstáculos
+function spawnObstacle() {
+    const x = Math.random() * (canvasWidth - obstacleWidth);
+    obstacles.push({ x: x, y: -obstacleHeight });
 }
 
-// Função para desenhar dinossauro
-function drawDino() {
-    // Corpo
-    ctx.fillStyle = 'orange';
-    ctx.fillRect(dino.x, dino.y, 50, 40);
-    // Cabeça
-    ctx.fillRect(dino.x + 35, dino.y - 15, 15, 15);
-    // Pernas
-    ctx.fillRect(dino.x + 10, dino.y + 40, 10, 10);
-    ctx.fillRect(dino.x + 30, dino.y + 40, 10, 10);
-    // Braço
-    ctx.fillRect(dino.x - 5, dino.y + 10, 10, 10);
-}
+// Função para atualizar o jogo
+function update() {
+    // Movimentação do carro
+    if (leftPressed && carX > 0) carX -= carSpeed;
+    if (rightPressed && carX < canvasWidth - carWidth) carX += carSpeed;
 
-// Função para desenhar tudo
-function drawGame() {
-    // Limpa tela
-    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    // Atualizar obstáculos
+    obstacles.forEach((obs, index) => {
+        obs.y += obstacleSpeed;
 
-    // Chão
-    ctx.fillStyle = '#646464';
-    ctx.fillRect(0, HEIGHT - 50, WIDTH, 50);
+        // Checa colisão
+        if (carX < obs.x + obstacleWidth &&
+            carX + carWidth > obs.x &&
+            carY < obs.y + obstacleHeight &&
+            carY + carHeight > obs.y) {
+            alert('Game Over! Pontuação: ' + score);
+            document.location.reload();
+        }
 
-    // Dinossauro
-    drawDino();
-
-    // Obstáculos
-    ctx.fillStyle = 'black';
-    obstacles.forEach(obs => {
-        ctx.beginPath();
-        ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
-        ctx.fill();
+        // Remove obstáculos que saíram da tela
+        if (obs.y > canvasHeight) {
+            obstacles.splice(index, 1);
+            score++;
+        }
     });
 
-    // Pontuação
-    ctx.fillStyle = 'black';
-    ctx.font = '24px Arial';
-    ctx.fillText('Score: ' + score, 10, 30);
-}
-
-// Função para reiniciar jogo
-function resetGame() {
-    obstacles = [];
-    dino.y = HEIGHT - 90;
-    dino.velY = 0;
-    dino.isJumping = false;
-    score = 0;
-    spawnTimer = 0;
-}
-
-// Função principal
-function update() {
-    // Gravidade e movimento do dinossauro
-    dino.velY += dino.gravity;
-    dino.y += dino.velY;
-
-    if(dino.y > HEIGHT - 90){
-        dino.y = HEIGHT - 90;
-        dino.velY = 0;
-        dino.isJumping = false;
-    }
-
-    // Criar obstáculos
+    // Spawn de obstáculos
     spawnTimer++;
-    if(spawnTimer > 90){
-        createObstacle();
+    if (spawnTimer > 60) { // a cada 60 frames (~1s)
+        spawnObstacle();
         spawnTimer = 0;
     }
-
-    // Mover obstáculos
-    obstacles.forEach(obs => { obs.x -= obstacleSpeed; });
-
-    // Remover obstáculos saídos da tela
-    obstacles = obstacles.filter(obs => obs.x + obs.radius > 0);
-
-    // Checar colisão
-    for(let obs of obstacles){
-        if(dino.x < obs.x + obs.radius && dino.x + dino.width > obs.x - obs.radius &&
-           dino.y < obs.y + obs.radius && dino.y + dino.height > obs.y - obs.radius){
-            // Colisão detectada
-            alert("Você bateu! Reiniciando...");
-            resetGame();
-            break;
-        }
-    }
-
-    // Pontuação
-    score++;
-
-    drawGame();
-
-    requestAnimationFrame(update);
 }
 
-// Detectar toque ou clique para pular
-window.addEventListener('mousedown', () => {
-    if(!dino.isJumping){
-        dino.velY = -15;
-        dino.isJumping = true;
-    }
-});
-window.addEventListener('touchstart', () => {
-    if(!dino.isJumping){
-        dino.velY = -15;
-        dino.isJumping = true;
-    }
-});
+// Função para desenhar o jogo
+function draw() {
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-// Inicia jogo
-update();
+    // Desenha carro
+    ctx.fillStyle = 'orange';
+    ctx.fillRect(carX, carY, carWidth, carHeight);
+
+    // Desenha obstáculos
+    ctx.fillStyle = 'red';
+    obstacles.forEach(obs => ctx.fillRect(obs.x, obs.y, obstacleWidth, obstacleHeight));
+
+    // Desenha pontuação
+    ctx.fillStyle = 'white';
+    ctx.font = '20px Arial';
+    ctx.fillText('Pontuação: ' + score, 10, 30);
+}
+
+// Loop principal
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
 </script>
 </body>
 </html>
