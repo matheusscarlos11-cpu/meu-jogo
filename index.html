@@ -2,118 +2,114 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Runner do Matheus</title>
+<title>Jogo do Coelho</title>
 <style>
 body {
     margin: 0;
-    background: white;
     overflow: hidden;
+    background: white;
 }
 canvas {
     display: block;
-    margin: auto;
-    background: #f0f0f0;
 }
 </style>
 </head>
 <body>
 
-<canvas id="game" width="600" height="400"></canvas>
+<canvas id="game"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-let player = {
-    x: 100,
-    y: 300,
-    width: 50,
-    height: 50,
-    dy: 0,
-    gravity: 0.8,
-    jumping: false
-};
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-let obstacle = {
-    x: 600,
-    y: 320,
+let coelho = {
+    x: 80,
+    y: canvas.height - 120,
     width: 40,
-    height: 80,
-    speed: 6
+    height: 40,
+    dy: 0,
+    gravity: 0.6,
+    jump: -12,
+    grounded: true
 };
 
-let score = 0;
+let obstaculo = {
+    x: canvas.width,
+    y: canvas.height - 100,
+    width: 40,
+    height: 60
+};
+
+let velocidade = 6;
+let pontos = 0;
 let gameOver = false;
 
-// Toque na tela para pular
-canvas.addEventListener("click", () => {
-    if (!player.jumping && !gameOver) {
-        player.dy = -15;
-        player.jumping = true;
-    }
-});
-
-function update() {
-    if (!gameOver) {
-
-        // Gravidade
-        player.dy += player.gravity;
-        player.y += player.dy;
-
-        if (player.y >= 300) {
-            player.y = 300;
-            player.jumping = false;
-        }
-
-        // Movimento obstáculo
-        obstacle.x -= obstacle.speed;
-
-        if (obstacle.x < -40) {
-            obstacle.x = 600;
-            score++;
-        }
-
-        // Colisão
-        if (
-            player.x < obstacle.x + obstacle.width &&
-            player.x + player.width > obstacle.x &&
-            player.y < obstacle.y + obstacle.height &&
-            player.y + player.height > obstacle.y
-        ) {
-            gameOver = true;
-        }
-    }
+function desenharCoelho() {
+    ctx.fillStyle = "blue";
+    ctx.fillRect(coelho.x, coelho.y, coelho.width, coelho.height);
 }
 
-function draw() {
+function desenharObstaculo() {
+    ctx.fillStyle = "green";
+    ctx.fillRect(obstaculo.x, obstaculo.y, obstaculo.width, obstaculo.height);
+}
+
+function atualizar() {
+    if (gameOver) return;
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Jogador
-    ctx.fillStyle = "black";
-    ctx.fillRect(player.x, player.y, player.width, player.height);
+    // gravidade
+    coelho.dy += coelho.gravity;
+    coelho.y += coelho.dy;
 
-    // Obstáculo azul
-    ctx.fillStyle = "blue";
-    ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+    if (coelho.y + coelho.height >= canvas.height - 60) {
+        coelho.y = canvas.height - 60 - coelho.height;
+        coelho.dy = 0;
+        coelho.grounded = true;
+    }
 
-    // Pontos
-    ctx.fillStyle = "black";
-    ctx.font = "20px Arial";
-    ctx.fillText("Pontos: " + score, 10, 30);
+    // mover obstáculo
+    obstaculo.x -= velocidade;
 
-    if (gameOver) {
-        ctx.font = "40px Arial";
-        ctx.fillText("GAME OVER", 180, 200);
+    if (obstaculo.x + obstaculo.width < 0) {
+        obstaculo.x = canvas.width;
+        pontos++;
+    }
+
+    // colisão
+    if (
+        coelho.x < obstaculo.x + obstaculo.width &&
+        coelho.x + coelho.width > obstaculo.x &&
+        coelho.y < obstaculo.y + obstaculo.height &&
+        coelho.y + coelho.height > obstaculo.y
+    ) {
+        gameOver = true;
+        alert("Game Over! Pontos: " + pontos);
+        location.reload();
+    }
+
+    desenharCoelho();
+    desenharObstaculo();
+
+    requestAnimationFrame(atualizar);
+}
+
+// PULAR (funciona no celular)
+window.addEventListener("touchstart", pular);
+window.addEventListener("click", pular);
+
+function pular() {
+    if (coelho.grounded) {
+        coelho.dy = coelho.jump;
+        coelho.grounded = false;
     }
 }
 
-function gameLoop() {
-    update();
-    draw();
-    requestAnimationFrame(gameLoop);
-}
-
-gameLoop();
+atualizar();
 </script>
 
 </body>
