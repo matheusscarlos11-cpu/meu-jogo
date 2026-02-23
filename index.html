@@ -1,116 +1,158 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>jogo do matheus:)</title>
+<title>Jogo do Dinossauro</title>
 <style>
-body {
-    margin: 0;
-    overflow: hidden;
-    background: white;
-}
-canvas {
-    display: block;
-}
+  body { margin: 0; background: #fff; overflow: hidden; }
+  canvas { display: block; margin: auto; background: #fff; }
 </style>
 </head>
 <body>
-
-<canvas id="game"></canvas>
-
+<canvas id="gameCanvas" width="800" height="400"></canvas>
 <script>
-const canvas = document.getElementById("game");
+const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+const WIDTH = canvas.width;
+const HEIGHT = canvas.height;
 
-let coelho = {
-    x: 80,
-    y: canvas.height - 120,
-    width: 40,
-    height: 40,
-    dy: 0,
-    gravity: 0.6,
-    jump: -12,
-    grounded: true
+// Dinossauro
+let dino = {
+    x: 100,
+    y: HEIGHT - 90,
+    width: 50,
+    height: 50,
+    velY: 0,
+    gravity: 0.8,
+    isJumping: false
 };
 
-let obstaculo = {
-    x: canvas.width,
-    y: canvas.height - 100,
-    width: 40,
-    height: 60
-};
+// Obstáculos
+let obstacles = [];
+let obstacleSpeed = 6;
+let spawnTimer = 0;
 
-let velocidade = 6;
-let pontos = 0;
-let gameOver = false;
+// Pontuação
+let score = 0;
 
-function desenharCoelho() {
-    ctx.fillStyle = "blue";
-    ctx.fillRect(coelho.x, coelho.y, coelho.width, coelho.height);
+// Função para criar obstáculos
+function createObstacle() {
+    let x = WIDTH + Math.random() * 300;
+    let y = HEIGHT - 70;
+    obstacles.push({x: x, y: y, radius: 20});
 }
 
-function desenharObstaculo() {
-    ctx.fillStyle = "green";
-    ctx.fillRect(obstaculo.x, obstaculo.y, obstaculo.width, obstaculo.height);
+// Função para desenhar dinossauro
+function drawDino() {
+    // Corpo
+    ctx.fillStyle = 'orange';
+    ctx.fillRect(dino.x, dino.y, 50, 40);
+    // Cabeça
+    ctx.fillRect(dino.x + 35, dino.y - 15, 15, 15);
+    // Pernas
+    ctx.fillRect(dino.x + 10, dino.y + 40, 10, 10);
+    ctx.fillRect(dino.x + 30, dino.y + 40, 10, 10);
+    // Braço
+    ctx.fillRect(dino.x - 5, dino.y + 10, 10, 10);
 }
 
-function atualizar() {
-    if (gameOver) return;
+// Função para desenhar tudo
+function drawGame() {
+    // Limpa tela
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Chão
+    ctx.fillStyle = '#646464';
+    ctx.fillRect(0, HEIGHT - 50, WIDTH, 50);
 
-    // gravidade
-    coelho.dy += coelho.gravity;
-    coelho.y += coelho.dy;
+    // Dinossauro
+    drawDino();
 
-    if (coelho.y + coelho.height >= canvas.height - 60) {
-        coelho.y = canvas.height - 60 - coelho.height;
-        coelho.dy = 0;
-        coelho.grounded = true;
-    }
+    // Obstáculos
+    ctx.fillStyle = 'black';
+    obstacles.forEach(obs => {
+        ctx.beginPath();
+        ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
+        ctx.fill();
+    });
 
-    // mover obstáculo
-    obstaculo.x -= velocidade;
-
-    if (obstaculo.x + obstaculo.width < 0) {
-        obstaculo.x = canvas.width;
-        pontos++;
-    }
-
-    // colisão
-    if (
-        coelho.x < obstaculo.x + obstaculo.width &&
-        coelho.x + coelho.width > obstaculo.x &&
-        coelho.y < obstaculo.y + obstaculo.height &&
-        coelho.y + coelho.height > obstaculo.y
-    ) {
-        gameOver = true;
-        alert("Game Over! Pontos: " + pontos);
-        location.reload();
-    }
-
-    desenharCoelho();
-    desenharObstaculo();
-
-    requestAnimationFrame(atualizar);
+    // Pontuação
+    ctx.fillStyle = 'black';
+    ctx.font = '24px Arial';
+    ctx.fillText('Score: ' + score, 10, 30);
 }
 
-// PULAR (funciona no celular)
-window.addEventListener("touchstart", pular);
-window.addEventListener("click", pular);
-
-function pular() {
-    if (coelho.grounded) {
-        coelho.dy = coelho.jump;
-        coelho.grounded = false;
-    }
+// Função para reiniciar jogo
+function resetGame() {
+    obstacles = [];
+    dino.y = HEIGHT - 90;
+    dino.velY = 0;
+    dino.isJumping = false;
+    score = 0;
+    spawnTimer = 0;
 }
 
-atualizar();
+// Função principal
+function update() {
+    // Gravidade e movimento do dinossauro
+    dino.velY += dino.gravity;
+    dino.y += dino.velY;
+
+    if(dino.y > HEIGHT - 90){
+        dino.y = HEIGHT - 90;
+        dino.velY = 0;
+        dino.isJumping = false;
+    }
+
+    // Criar obstáculos
+    spawnTimer++;
+    if(spawnTimer > 90){
+        createObstacle();
+        spawnTimer = 0;
+    }
+
+    // Mover obstáculos
+    obstacles.forEach(obs => { obs.x -= obstacleSpeed; });
+
+    // Remover obstáculos saídos da tela
+    obstacles = obstacles.filter(obs => obs.x + obs.radius > 0);
+
+    // Checar colisão
+    for(let obs of obstacles){
+        if(dino.x < obs.x + obs.radius && dino.x + dino.width > obs.x - obs.radius &&
+           dino.y < obs.y + obs.radius && dino.y + dino.height > obs.y - obs.radius){
+            // Colisão detectada
+            alert("Você bateu! Reiniciando...");
+            resetGame();
+            break;
+        }
+    }
+
+    // Pontuação
+    score++;
+
+    drawGame();
+
+    requestAnimationFrame(update);
+}
+
+// Detectar toque ou clique para pular
+window.addEventListener('mousedown', () => {
+    if(!dino.isJumping){
+        dino.velY = -15;
+        dino.isJumping = true;
+    }
+});
+window.addEventListener('touchstart', () => {
+    if(!dino.isJumping){
+        dino.velY = -15;
+        dino.isJumping = true;
+    }
+});
+
+// Inicia jogo
+update();
 </script>
-
 </body>
 </html>
