@@ -1,195 +1,153 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Jogo de Corrida 2D com Tiro</title>
-    <style>
-        body {
-            margin: 0;
-            background: #333;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        canvas {
-            background: #555;
-            border: 2px solid #000;
-        }
-        .controls {
-            margin-top: 10px;
-        }
-        .controls button {
-            width: 100px;
-            height: 50px;
-            font-size: 18px;
-            margin: 5px;
-            border-radius: 10px;
-            border: none;
-            background-color: orange;
-            color: white;
-            font-weight: bold;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>Jogo 2D Matheus</title>
+<style>
+body { margin:0; overflow:hidden; background:black; }
+canvas { display:block; }
+</style>
 </head>
 <body>
-<canvas id="gameCanvas" width="400" height="600"></canvas>
-<div class="controls">
-    <button id="leftBtn">⬅️ Esquerda</button>
-    <button id="rightBtn">Direita ➡️</button>
-    <button id="shootBtn">💥 Atirar</button>
-</div>
-
+<canvas id="game"></canvas>
 <script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-const canvasWidth = canvas.width;
-const canvasHeight = canvas.height;
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-// Carro
-const carWidth = 50;
-const carHeight = 100;
-let carX = canvasWidth / 2 - carWidth / 2;
-let carY = canvasHeight - carHeight - 10;
-const carSpeed = 5;
+let player = {
+  x: canvas.width/2,
+  y: canvas.height-120,
+  size: 40,
+  hp: 5
+};
 
-// Obstáculos
-const obstacleWidth = 50;
-const obstacleHeight = 50;
-let obstacles = [];
-const obstacleSpeed = 4;
-let spawnTimer = 0;
+let bullets = [];
+let enemyBullets = [];
+let enemies = [];
+let obstacles = [{x:canvas.width/2-100,y:canvas.height/2,w:200,h:30}];
 
-// Tiros
-const bullets = [];
-const bulletWidth = 10;
-const bulletHeight = 20;
-const bulletSpeed = 7;
-
-// Pontuação
-let score = 0;
-
-// Controles
-let leftPressed = false;
-let rightPressed = false;
-
-// Eventos teclado
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft') leftPressed = true;
-    if (e.key === 'ArrowRight') rightPressed = true;
-});
-
-document.addEventListener('keyup', (e) => {
-    if (e.key === 'ArrowLeft') leftPressed = false;
-    if (e.key === 'ArrowRight') rightPressed = false;
-});
-
-// Botões touchscreen
-document.getElementById('leftBtn').addEventListener('mousedown', () => leftPressed = true);
-document.getElementById('leftBtn').addEventListener('mouseup', () => leftPressed = false);
-document.getElementById('rightBtn').addEventListener('mousedown', () => rightPressed = true);
-document.getElementById('rightBtn').addEventListener('mouseup', () => rightPressed = false);
-
-document.getElementById('leftBtn').addEventListener('touchstart', (e) => { leftPressed = true; e.preventDefault(); });
-document.getElementById('leftBtn').addEventListener('touchend', (e) => { leftPressed = false; e.preventDefault(); });
-document.getElementById('rightBtn').addEventListener('touchstart', (e) => { rightPressed = true; e.preventDefault(); });
-document.getElementById('rightBtn').addEventListener('touchend', (e) => { rightPressed = false; e.preventDefault(); });
-
-// Botão de atirar
-document.getElementById('shootBtn').addEventListener('click', shoot);
-document.getElementById('shootBtn').addEventListener('touchstart', (e) => { shoot(); e.preventDefault(); });
-
-function shoot() {
-    bullets.push({ x: carX + carWidth / 2 - bulletWidth / 2, y: carY - bulletHeight });
+for(let i=0;i<5;i++){
+  enemies.push({
+    x: Math.random()*(canvas.width-50),
+    y: Math.random()*200+20,
+    size:40
+  });
 }
 
-// Gerar obstáculos
-function spawnObstacle() {
-    const x = Math.random() * (canvasWidth - obstacleWidth);
-    obstacles.push({ x: x, y: -obstacleHeight });
+let joystick = {active:false,x:0,y:0};
+
+canvas.addEventListener("touchstart", e=>{
+  let t = e.touches[0];
+  if(t.clientX < canvas.width/2){
+    joystick.active = true;
+    joystick.x = t.clientX;
+    joystick.y = t.clientY;
+  } else {
+    bullets.push({x:player.x+15,y:player.y,vy:-8});
+  }
+});
+
+canvas.addEventListener("touchmove", e=>{
+  if(joystick.active){
+    let t = e.touches[0];
+    player.x += (t.clientX - joystick.x)*0.15;
+    player.y += (t.clientY - joystick.y)*0.15;
+
+    joystick.x = t.clientX;
+    joystick.y = t.clientY;
+  }
+});
+
+canvas.addEventListener("touchend", ()=> joystick.active=false);
+
+function collisionRect(a,b){
+  return a.x < b.x+b.w &&
+         a.x+a.w > b.x &&
+         a.y < b.y+b.h &&
+         a.y+a.h > b.y;
 }
 
-// Atualizar jogo
-function update() {
-    if (leftPressed && carX > 0) carX -= carSpeed;
-    if (rightPressed && carX < canvasWidth - carWidth) carX += carSpeed;
+function update(){
 
-    // Atualizar obstáculos
-    obstacles.forEach((obs, oIndex) => {
-        obs.y += obstacleSpeed;
+  bullets.forEach(b=> b.y += b.vy);
+  enemyBullets.forEach(b=> b.y += b.vy);
 
-        // Colisão com carro
-        if (carX < obs.x + obstacleWidth &&
-            carX + carWidth > obs.x &&
-            carY < obs.y + obstacleHeight &&
-            carY + carHeight > obs.y) {
-            alert('Game Over! Pontuação: ' + score);
-            document.location.reload();
-        }
-
-        // Colisão com tiros
-        bullets.forEach((b, bIndex) => {
-            if (b.x < obs.x + obstacleWidth &&
-                b.x + bulletWidth > obs.x &&
-                b.y < obs.y + obstacleHeight &&
-                b.y + bulletHeight > obs.y) {
-                obstacles.splice(oIndex, 1);
-                bullets.splice(bIndex, 1);
-                score += 2; // Pontuação extra por destruir
-            }
-        });
-
-        if (obs.y > canvasHeight) {
-            obstacles.splice(oIndex, 1);
-            score++;
-        }
-    });
-
-    // Atualizar tiros
-    bullets.forEach((b, index) => {
-        b.y -= bulletSpeed;
-        if (b.y + bulletHeight < 0) bullets.splice(index, 1);
-    });
-
-    // Spawn obstáculos
-    spawnTimer++;
-    if (spawnTimer > 60) {
-        spawnObstacle();
-        spawnTimer = 0;
+  enemies.forEach(e=>{
+    if(Math.random()<0.01){
+      enemyBullets.push({x:e.x+15,y:e.y+40,vy:4});
     }
+  });
+
+  bullets = bullets.filter(b=> b.y>0);
+  enemyBullets = enemyBullets.filter(b=> b.y<canvas.height);
+
+  bullets.forEach(b=>{
+    let bulletRect = {x:b.x,y:b.y,w:8,h:8};
+
+    obstacles.forEach(o=>{
+      if(collisionRect(bulletRect,{x:o.x,y:o.y,w:o.w,h:o.h})){
+        b.y=-100;
+      }
+    });
+
+    enemies = enemies.filter(e=>{
+      return !(b.x<e.x+40 && b.x+8>e.x && b.y<e.y+40 && b.y+8>e.y);
+    });
+  });
+
+  enemyBullets.forEach(b=>{
+    let bulletRect = {x:b.x,y:b.y,w:8,h:8};
+
+    obstacles.forEach(o=>{
+      if(collisionRect(bulletRect,{x:o.x,y:o.y,w:o.w,h:o.h})){
+        b.y=canvas.height+100;
+      }
+    });
+
+    if(b.x<player.x+40 && b.x+8>player.x &&
+       b.y<player.y+40 && b.y+8>player.y){
+      player.hp--;
+      b.y=canvas.height+100;
+      if(player.hp<=0){
+        alert("Você perdeu!");
+        location.reload();
+      }
+    }
+  });
 }
 
-// Desenhar jogo
-function draw() {
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    // Carro
-    ctx.fillStyle = 'orange';
-    ctx.fillRect(carX, carY, carWidth, carHeight);
+  ctx.fillStyle="green";
+  ctx.fillRect(player.x,player.y,40,40);
 
-    // Obstáculos
-    ctx.fillStyle = 'red';
-    obstacles.forEach(obs => ctx.fillRect(obs.x, obs.y, obstacleWidth, obstacleHeight));
+  ctx.fillStyle="blue";
+  enemies.forEach(e=> ctx.fillRect(e.x,e.y,40,40));
 
-    // Tiros
-    ctx.fillStyle = 'yellow';
-    bullets.forEach(b => ctx.fillRect(b.x, b.y, bulletWidth, bulletHeight));
+  ctx.fillStyle="green";
+  bullets.forEach(b=> ctx.fillRect(b.x,b.y,8,8));
 
-    // Pontuação
-    ctx.fillStyle = 'white';
-    ctx.font = '20px Arial';
-    ctx.fillText('Pontuação: ' + score, 10, 30);
+  ctx.fillStyle="blue";
+  enemyBullets.forEach(b=> ctx.fillRect(b.x,b.y,8,8));
+
+  ctx.fillStyle="gray";
+  obstacles.forEach(o=> ctx.fillRect(o.x,o.y,o.w,o.h));
+
+  ctx.fillStyle="red";
+  ctx.fillText("HP: "+player.hp,20,30);
 }
 
-// Loop principal
-function gameLoop() {
-    update();
-    draw();
-    requestAnimationFrame(gameLoop);
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
 }
 
-gameLoop();
+loop();
 </script>
 </body>
 </html>
