@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Jogo 2D Matheus</title>
+<title>Jogo 2D Controle Real</title>
 <style>
 body { margin:0; overflow:hidden; background:black; }
 canvas { display:block; }
@@ -17,12 +17,7 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let player = {
-  x: canvas.width/2,
-  y: canvas.height-120,
-  size: 40,
-  hp: 5
-};
+let player = { x:canvas.width/2, y:canvas.height-150, size:40, hp:5 };
 
 let bullets = [];
 let enemyBullets = [];
@@ -30,22 +25,38 @@ let enemies = [];
 let obstacles = [{x:canvas.width/2-100,y:canvas.height/2,w:200,h:30}];
 
 for(let i=0;i<5;i++){
-  enemies.push({
-    x: Math.random()*(canvas.width-50),
-    y: Math.random()*200+20,
-    size:40
-  });
+  enemies.push({x:Math.random()*(canvas.width-50),y:Math.random()*200+20,size:40});
 }
 
-let joystick = {active:false,x:0,y:0};
+let joystick = {
+  baseX:80,
+  baseY:canvas.height-100,
+  knobX:80,
+  knobY:canvas.height-100,
+  radius:50,
+  active:false
+};
+
+let shootBtn = {
+  x:canvas.width-100,
+  y:canvas.height-100,
+  r:40
+};
 
 canvas.addEventListener("touchstart", e=>{
   let t = e.touches[0];
-  if(t.clientX < canvas.width/2){
+
+  // Joystick
+  let dx = t.clientX - joystick.baseX;
+  let dy = t.clientY - joystick.baseY;
+  if(Math.sqrt(dx*dx+dy*dy) < joystick.radius){
     joystick.active = true;
-    joystick.x = t.clientX;
-    joystick.y = t.clientY;
-  } else {
+  }
+
+  // Botão atirar
+  let sx = t.clientX - shootBtn.x;
+  let sy = t.clientY - shootBtn.y;
+  if(Math.sqrt(sx*sx+sy*sy) < shootBtn.r){
     bullets.push({x:player.x+15,y:player.y,vy:-8});
   }
 });
@@ -53,27 +64,33 @@ canvas.addEventListener("touchstart", e=>{
 canvas.addEventListener("touchmove", e=>{
   if(joystick.active){
     let t = e.touches[0];
-    player.x += (t.clientX - joystick.x)*0.15;
-    player.y += (t.clientY - joystick.y)*0.15;
+    let dx = t.clientX - joystick.baseX;
+    let dy = t.clientY - joystick.baseY;
 
-    joystick.x = t.clientX;
-    joystick.y = t.clientY;
+    let dist = Math.sqrt(dx*dx+dy*dy);
+    if(dist > joystick.radius){
+      dx *= joystick.radius/dist;
+      dy *= joystick.radius/dist;
+    }
+
+    joystick.knobX = joystick.baseX + dx;
+    joystick.knobY = joystick.baseY + dy;
+
+    player.x += dx*0.1;
+    player.y += dy*0.1;
   }
 });
 
-canvas.addEventListener("touchend", ()=> joystick.active=false);
-
-function collisionRect(a,b){
-  return a.x < b.x+b.w &&
-         a.x+a.w > b.x &&
-         a.y < b.y+b.h &&
-         a.y+a.h > b.y;
-}
+canvas.addEventListener("touchend", ()=>{
+  joystick.active=false;
+  joystick.knobX = joystick.baseX;
+  joystick.knobY = joystick.baseY;
+});
 
 function update(){
 
-  bullets.forEach(b=> b.y += b.vy);
-  enemyBullets.forEach(b=> b.y += b.vy);
+  bullets.forEach(b=> b.y+=b.vy);
+  enemyBullets.forEach(b=> b.y+=b.vy);
 
   enemies.forEach(e=>{
     if(Math.random()<0.01){
@@ -85,32 +102,15 @@ function update(){
   enemyBullets = enemyBullets.filter(b=> b.y<canvas.height);
 
   bullets.forEach(b=>{
-    let bulletRect = {x:b.x,y:b.y,w:8,h:8};
-
-    obstacles.forEach(o=>{
-      if(collisionRect(bulletRect,{x:o.x,y:o.y,w:o.w,h:o.h})){
-        b.y=-100;
-      }
-    });
-
     enemies = enemies.filter(e=>{
       return !(b.x<e.x+40 && b.x+8>e.x && b.y<e.y+40 && b.y+8>e.y);
     });
   });
 
   enemyBullets.forEach(b=>{
-    let bulletRect = {x:b.x,y:b.y,w:8,h:8};
-
-    obstacles.forEach(o=>{
-      if(collisionRect(bulletRect,{x:o.x,y:o.y,w:o.w,h:o.h})){
-        b.y=canvas.height+100;
-      }
-    });
-
     if(b.x<player.x+40 && b.x+8>player.x &&
        b.y<player.y+40 && b.y+8>player.y){
       player.hp--;
-      b.y=canvas.height+100;
       if(player.hp<=0){
         alert("Você perdeu!");
         location.reload();
@@ -122,23 +122,46 @@ function update(){
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
+  // Player
   ctx.fillStyle="green";
   ctx.fillRect(player.x,player.y,40,40);
 
+  // Inimigos
   ctx.fillStyle="blue";
   enemies.forEach(e=> ctx.fillRect(e.x,e.y,40,40));
 
-  ctx.fillStyle="green";
+  // Tiros
+  ctx.fillStyle="lime";
   bullets.forEach(b=> ctx.fillRect(b.x,b.y,8,8));
 
-  ctx.fillStyle="blue";
+  ctx.fillStyle="cyan";
   enemyBullets.forEach(b=> ctx.fillRect(b.x,b.y,8,8));
 
+  // Obstáculo
   ctx.fillStyle="gray";
   obstacles.forEach(o=> ctx.fillRect(o.x,o.y,o.w,o.h));
 
+  // HP
   ctx.fillStyle="red";
   ctx.fillText("HP: "+player.hp,20,30);
+
+  // Joystick base
+  ctx.beginPath();
+  ctx.arc(joystick.baseX, joystick.baseY, joystick.radius, 0, Math.PI*2);
+  ctx.strokeStyle="white";
+  ctx.stroke();
+
+  // Joystick botão
+  ctx.beginPath();
+  ctx.arc(joystick.knobX, joystick.knobY, 20, 0, Math.PI*2);
+  ctx.fillStyle="white";
+  ctx.fill();
+
+  // Botão atirar
+  ctx.beginPath();
+  ctx.arc(shootBtn.x, shootBtn.y, shootBtn.r, 0, Math.PI*2);
+  ctx.fillStyle="red";
+  ctx.fill();
 }
 
 function loop(){
